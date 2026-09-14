@@ -1,5 +1,8 @@
-from app.privacy import mask_pii, unmask_pii
-
+from app.privacy import (
+    PrivacyContext,
+    mask_pii,
+    unmask_pii,
+)
 
 def test_masks_email():
     text = "My email is ken@example.com."
@@ -63,3 +66,63 @@ def test_unmasks_pii():
     restored = unmask_pii(masked, mapping)
 
     assert restored == original
+
+def test_privacy_context_uses_unique_phone_placeholders():
+    context = PrivacyContext()
+
+    first = context.mask(
+        "My phone is 0711111111."
+    )
+
+    second = context.mask(
+        "My other phone is 0722222222."
+    )
+
+    assert "[PHONE_1]" in first
+    assert "[PHONE_2]" in second
+
+
+def test_privacy_context_uses_unique_email_placeholders():
+    context = PrivacyContext()
+
+    first = context.mask(
+        "My email is first@example.com."
+    )
+
+    second = context.mask(
+        "My other email is second@example.com."
+    )
+
+    assert "[EMAIL_1]" in first
+    assert "[EMAIL_2]" in second
+
+
+def test_privacy_context_restores_previous_pii():
+    context = PrivacyContext()
+
+    context.mask(
+        "My phone is 0711111111."
+    )
+
+    masked = context.mask(
+        "Please confirm [PHONE_1]."
+    )
+
+    restored = context.unmask(masked)
+
+    assert "0711111111" in restored
+
+
+def test_privacy_context_keeps_mapping_outside_text():
+    context = PrivacyContext()
+
+    masked = context.mask(
+        "Email me at ken@example.com."
+    )
+
+    mapping = context.get_mapping()
+
+    assert "ken@example.com" not in masked
+    assert mapping["[EMAIL_1]"] == (
+        "ken@example.com"
+    )

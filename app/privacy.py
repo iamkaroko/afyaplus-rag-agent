@@ -10,48 +10,119 @@ PHONE_PATTERN = re.compile(
 )
 
 
-def mask_pii(text: str) -> tuple[str, dict[str, str]]:
+class PrivacyContext:
     """
-    Mask email addresses and Kenyan phone numbers in user input.
+    Maintain PII placeholders and mappings for one conversation.
 
-    Args:
-        text: Raw user input that may contain PII.
-
-    Returns:
-        A tuple containing the masked text and a mapping of
-        placeholders to their original values.
+    Actual PII remains outside the language-model conversation.
     """
-    pii_mapping: dict[str, str] = {}
 
-    def replace_email(match: re.Match) -> str:
-        placeholder = f"[EMAIL_{len([k for k in pii_mapping if k.startswith('[EMAIL_')]) + 1}]"
-        pii_mapping[placeholder] = match.group(0)
-        return placeholder
+    def __init__(self) -> None:
+        self._pii_mapping: dict[str, str] = {}
+        self._email_counter = 0
+        self._phone_counter = 0
 
-    def replace_phone(match: re.Match) -> str:
-        placeholder = f"[PHONE_{len([k for k in pii_mapping if k.startswith('[PHONE_')]) + 1}]"
-        pii_mapping[placeholder] = match.group(0)
-        return placeholder
+    def mask(self, text: str) -> str:
+        """
+        Replace supported PII with session-unique placeholders.
 
-    masked_text = EMAIL_PATTERN.sub(replace_email, text)
-    masked_text = PHONE_PATTERN.sub(replace_phone, masked_text)
+        Args:
+            text:
+                Raw user-provided text.
 
-    return masked_text, pii_mapping
+        Returns:
+            Text containing placeholders instead of PII.
+        """
 
-def unmask_pii(text: str, pii_mapping: dict[str, str]) -> str:
+        def replace_email(match: re.Match) -> str:
+            self._email_counter += 1
+
+            placeholder = (
+                f"[EMAIL_{self._email_counter}]"
+            )
+
+            self._pii_mapping[placeholder] = (
+                match.group(0)
+            )
+
+            return placeholder
+
+        def replace_phone(match: re.Match) -> str:
+            self._phone_counter += 1
+
+            placeholder = (
+                f"[PHONE_{self._phone_counter}]"
+            )
+
+            self._pii_mapping[placeholder] = (
+                match.group(0)
+            )
+
+            return placeholder
+
+        masked_text = EMAIL_PATTERN.sub(
+            replace_email,
+            text,
+        )
+
+        masked_text = PHONE_PATTERN.sub(
+            replace_phone,
+            masked_text,
+        )
+
+        return masked_text
+
+    def unmask(self, text: str) -> str:
+        """
+        Restore known PII placeholders to original values.
+        """
+        unmasked_text = text
+
+        for placeholder, original_value in (
+            self._pii_mapping.items()
+        ):
+            unmasked_text = unmasked_text.replace(
+                placeholder,
+                original_value,
+            )
+
+        return unmasked_text
+
+    def get_mapping(self) -> dict[str, str]:
+        """
+        Return a copy of the current PII mapping.
+        """
+        return self._pii_mapping.copy()
+
+
+def mask_pii(
+    text: str,
+) -> tuple[str, dict[str, str]]:
     """
-    Restore masked PII placeholders to their original values.
+    Mask supported PII in a single standalone message.
 
-    Args:
-        text: Text containing PII placeholders.
-        pii_mapping: Mapping between placeholders and original PII.
+    This function is retained for backwards compatibility
+    and simple one-off masking operations.
+    """
+    context = PrivacyContext()
 
-    Returns:
-        Text with the original PII restored.
+    masked_text = context.mask(text)
+
+    return masked_text, context.get_mapping()
+
+
+def unmask_pii(
+    text: str,
+    pii_mapping: dict[str, str],
+) -> str:
+    """
+    Restore placeholders using a supplied PII mapping.
     """
     unmasked_text = text
 
-    for placeholder, original_value in pii_mapping.items():
+    for placeholder, original_value in (
+        pii_mapping.items()
+    ):
         unmasked_text = unmasked_text.replace(
             placeholder,
             original_value,
