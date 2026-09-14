@@ -6,6 +6,8 @@ from app.tools import (
     calculate_medication_volume,
     search_afyaplus_knowledge,
 )
+from app.memory import ConversationMemory
+
 
 
 SYSTEM_PROMPT = """
@@ -37,6 +39,15 @@ Rules:
    prescription or treatment recommendation.
 
 7. Keep answers concise and grounded in tool results.
+
+8. Only answer questions related to AfyaPlus insurance,
+   clinical routing, or supported medication calculations.
+
+9. If a question is outside the AfyaPlus domain, politely
+   explain that it is outside the scope of this assistant.
+
+10. Never use your general model knowledge as a substitute
+    for missing AfyaPlus policy or clinical information.
 """
 
 
@@ -65,3 +76,52 @@ def create_afyaplus_agent():
         tools=tools,
         system_prompt=SYSTEM_PROMPT,
     )
+
+def run_agent(
+    agent,
+    memory: ConversationMemory,
+    user_message: str,
+) -> str:
+    """
+    Run one conversational turn through the AfyaPlus agent.
+
+    The existing conversation history is supplied to the agent,
+    and the new user and assistant messages are persisted in
+    memory after the turn.
+
+    Args:
+        agent:
+            The configured AfyaPlus LangChain agent.
+        memory:
+            Conversation memory for the current session.
+        user_message:
+            The current user message.
+
+    Returns:
+        The assistant's final response.
+    """
+    if not user_message.strip():
+        raise ValueError("User message cannot be empty.")
+
+    messages = memory.get_messages()
+
+    messages.append(
+        {
+            "role": "user",
+            "content": user_message,
+        }
+    )
+
+    result = agent.invoke(
+        {
+            "messages": messages,
+        }
+    )
+
+    final_message = result["messages"][-1]
+    response = str(final_message.content)
+
+    memory.add_user_message(user_message)
+    memory.add_ai_message(response)
+
+    return response
