@@ -1,3 +1,5 @@
+from typing import Any
+
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 
@@ -51,7 +53,7 @@ Rules:
 """
 
 
-def create_afyaplus_agent():
+def create_afyaplus_agent() -> Any:
     """
     Create the AfyaPlus tool-using LangChain agent.
 
@@ -78,7 +80,7 @@ def create_afyaplus_agent():
     )
 
 def run_agent(
-    agent,
+    agent: Any,
     memory: ConversationMemory,
     user_message: str,
 ) -> str:

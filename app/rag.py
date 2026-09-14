@@ -37,7 +37,7 @@ def configure_rag() -> None:
     )
 
 
-def load_documents():
+def load_documents() -> list[Any]:
     """
     Load all supported documents from the AfyaPlus
     knowledge directory.
